@@ -3,130 +3,169 @@
 <head>
   <meta charset="UTF-8" />
   <title>기도 지도 - 오선지</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <style>
-    /* 전체 화면 설정 */
+    /* 기본 설정 */
     html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
       height: 100%;
-      overflow: hidden; /* 스크롤 방지 */
+      background-color: #5e0d0d; /* 배경색 (이미지 로딩 전) */
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
-    /* 오선지 이미지를 배경으로 설정하고 화면에 꽉 채움 */
-    #score-sheet {
-      width: 100vw; /* 뷰포트 너비 */
-      height: 100vh; /* 뷰포트 높이 */
-      background-image: url('image_7475ff.png'); /* **업로드하신 이미지 파일명으로 변경하세요** */
-      background-size: cover; /* 이미지를 꽉 채우도록 설정 */
+    /* 오선지 컨테이너: 이미지의 실제 비율을 유지하는 것이 핵심입니다. */
+    #score-container {
+      position: relative;
+      width: 100%;
+      max-width: 600px; /* 모바일 최적화 너비 제한 */
+      /* 이미지 비율에 맞춰 높이 자동 설정 (이미지가 세로로 길다면 이 비율 조정 필요) */
+      /* 예: 가로 1000px, 세로 1300px 이미지라면 1000/1300 = 약 0.77 */
+      aspect-ratio: 10 / 13; 
+      
+      background-image: url('image_740884.jpg'); /* 업로드하신 파일명 확인 */
+      background-size: contain;
       background-repeat: no-repeat;
       background-position: center;
-      position: relative; /* 마커의 절대 위치 기준점 */
     }
 
     /* 마커 스타일 */
     .icon-marker {
-      position: absolute; /* 절대 위치 지정 */
-      font-size: 30px; /* 하트 크기 조정 */
+      position: absolute;
+      /* 화면 크기에 비례하여 하트 크기 조절 (너무 크면 줄을 가림) */
+      font-size: 5vmin; 
       line-height: 1;
       text-align: center;
-      /* 마커가 중앙에 오도록 조정 */
-      transform: translate(-50%, -50%); 
+      transform: translate(-50%, -55%); /* 하트의 꼬리 부분이 줄에 걸치도록 미세 조정 */
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
 
     /* 하트 박동 애니메이션 */
     .pulse-heart {
-      animation: beat 1.2s infinite;
+      animation: beat 1.5s infinite;
       transform-origin: center;
     }
 
     @keyframes beat {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.4); }
+      0%, 100% { transform: translate(-50%, -55%) scale(1); }
+      50% { transform: translate(-50%, -55%) scale(1.2); }
     }
   </style>
 </head>
 <body>
-  <div id="score-sheet"></div>
+
+  <div id="score-container"></div>
 
   <script type="module">
-    // Firebase 및 Firestore는 동일하게 유지
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { firebaseConfig } from "./config.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const scoreContainer = document.getElementById('score-container');
+
+    // ============================================================
+    // [설정 영역] 이미지를 보며 이 숫들을 조정하여 줄 위치를 맞추세요.
+    // 모든 단위는 퍼센트(%) 입니다.
+    // ============================================================
     
-    // 오선지 영역 DOM 요소
-    const scoreSheet = document.getElementById('score-sheet');
+    // 1. 각 오선지 묶음(5줄)의 가장 '윗줄' Y 위치 (위에서부터 %)
+    // 이미지를 대략 눈으로 보고 적은 값입니다. 실제 화면 보며 미세조정 하세요.
+    const STAFF_Y_STARTS = [
+      12.5,  // 첫 번째 오선지 맨 윗줄
+      29.0,  // 두 번째 오선지 맨 윗줄
+      45.5,  // 세 번째 오선지 맨 윗줄
+      62.0,  // 네 번째 오선지 맨 윗줄
+      78.5   // 다섯 번째 오선지 맨 윗줄
+    ];
+
+    // 2. 오선지 안에서 줄과 줄 사이의 간격 (%)
+    const LINE_GAP = 1.6; 
+
+    // 3. 한 줄(오선지 묶음)에 들어갈 최대 하트 개수
+    const NOTES_PER_STAFF = 7; 
+
+    // ============================================================
 
     function getRandomHeart() {
-      const hearts = ['💚', '💛', '❤️'];
+      const hearts = ['💚', '💛', '❤️', '🧡', '💙'];
       return hearts[Math.floor(Math.random() * hearts.length)];
     }
 
-    // 오선지 라인에 마커를 배치하는 함수
-    // x, y는 **score-sheet** 영역 내에서의 백분율 좌표(0~100)입니다.
-    // **이 좌표를 수정하여 하트 위치를 오선지 라인에 맞추세요.**
-    function addMarker(xPercent, yPercent) {
+    function addMarker(staffIndex, noteIndex, pitchIndex) {
       const heart = getRandomHeart();
       const marker = document.createElement('div');
       marker.className = 'icon-marker pulse-heart';
       marker.innerHTML = heart;
       
-      // 백분율 위치로 설정
-      marker.style.left = `${xPercent}%`;
-      marker.style.top = `${yPercent}%`; 
+      // X좌표 계산: 왼쪽 높은음자리표를 피해서 15% 지점부터 시작
+      // 간격은 (전체 85%공간) / (음표 개수)
+      const startX = 18; // 시작점 (%)
+      const endX = 92;   // 끝점 (%)
+      const stepX = (endX - startX) / (NOTES_PER_STAFF - 1);
+      const x = startX + (noteIndex * stepX);
 
-      scoreSheet.appendChild(marker);
+      // Y좌표 계산: 해당 오선지 시작점 + (몇 번째 줄인지 * 줄 간격)
+      // pitchIndex: 0(맨 윗줄) ~ 4(맨 아랫줄) ... 혹은 0.5 단위로 줄 사이 가능
+      const baseY = STAFF_Y_STARTS[staffIndex];
+      const y = baseY + (pitchIndex * LINE_GAP);
+
+      marker.style.left = `${x}%`;
+      marker.style.top = `${y}%`; 
+
+      scoreContainer.appendChild(marker);
     }
 
-    // Firestore 리스너
-    onSnapshot(collection(db, "outreach_prayers"), (snapshot) => {
-      // 기존 마커 제거
-      document.querySelectorAll('.icon-marker').forEach(marker => marker.remove());
+    // Firestore 리스너 (최신순 정렬 등 필요에 따라 쿼리 수정)
+    // 여기서는 단순히 모든 데이터를 가져와서 시간순으로 정렬한다고 가정
+    const q = query(collection(db, "outreach_prayers"));
 
-      const now = new Date();
-      const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-
-      let markerCount = 0;
+    onSnapshot(q, (snapshot) => {
+      // 초기화
+      scoreContainer.innerHTML = ''; 
       
+      const docs = [];
       snapshot.forEach(doc => {
         const data = doc.data();
-        const ts = data.timestamp?.toDate?.();
-
-        if (ts && ts > hourAgo) {
-          // 문서의 고유 ID 또는 인덱스를 사용하여 위치를 결정
-          const docId = doc.id;
-          
-          // 임시: 문서 ID의 해시 값이나 인덱스를 이용해 오선지 라인에 배치할 x, y 좌표를 계산
-          // 이 부분은 데이터를 오선지 위에 시각적으로 매핑하는 **핵심 로직**입니다.
-          // 현재는 문서 인덱스(markerCount)를 사용하여 대략적인 위치를 잡았습니다.
-          
-          // X 좌표: 10% (왼쪽) ~ 90% (오른쪽) 사이
-          const x = 10 + (markerCount % 10) * 8; 
-
-          // Y 좌표: 오선지 간격에 맞춰 15%, 35%, 55%, 75%, 95% 근처에 배치
-          // 오선지 줄 수(5개)에 따라 Y 위치를 결정합니다.
-          const staveIndex = Math.floor(markerCount / 10) % 5;
-          const baseY = 15 + staveIndex * 20; // 15, 35, 55, 75, 95
-          
-          // 오선지 한 줄 내에서 높은 음자리표 줄(5줄) 위에 하트를 랜덤하게 배치하기 위한 조정
-          // (0.1 ~ 5.9 사이의 임의의 값으로 줄 위치를 시뮬레이션)
-          const lineOffset = (markerCount % 5) * 4; // 임의로 5개 줄에 띄워서 배치
-
-          const y = baseY + lineOffset;
-          
-          // 좌표 범위 조정 (Y가 너무 벗어나지 않도록)
-          const finalY = Math.min(Math.max(y, 10), 95); 
-
-          addMarker(x, finalY);
-          markerCount++;
+        if(data.timestamp) {
+            docs.push({ ...data, id: doc.id });
         }
+      });
+
+      // 과거 -> 최신 순으로 정렬 (악보를 앞에서부터 채우기 위해)
+      docs.sort((a, b) => a.timestamp.toDate() - b.timestamp.toDate());
+
+      // 최근 1시간 데이터만 필터링하려면 여기서 filter 수행
+      // const now = new Date();
+      // const filteredDocs = docs.filter(...)
+
+      // 최대 표시 개수 제한 (오선지 5묶음 * 줄당 7개 = 35개)
+      const maxNotes = STAFF_Y_STARTS.length * NOTES_PER_STAFF;
+      const displayDocs = docs.slice(-maxNotes); // 가장 최근 35개만 표시
+
+      displayDocs.forEach((doc, index) => {
+        // 1. 몇 번째 오선지 묶음인지 계산 (0 ~ 4)
+        const staffIndex = Math.floor(index / NOTES_PER_STAFF);
+        
+        // 2. 오선지 내에서 몇 번째 순서(가로)인지 계산 (0 ~ 6)
+        const noteIndex = index % NOTES_PER_STAFF;
+
+        // 3. 음 높이(어느 줄에 걸칠지) 랜덤 결정
+        // 0: 맨 윗줄, 1: 둘째줄 ... 4: 맨 아랫줄
+        // (0, 0.5, 1, 1.5 ... 로 하면 줄 사이사이에도 배치 가능)
+        const pitchOptions = [0, 1, 2, 3, 4]; 
+        // 문서를 기준으로 고정된 랜덤값을 얻기 위해 ID 사용 (새로고침해도 위치 유지)
+        const charCode = doc.id.charCodeAt(0) + doc.id.charCodeAt(doc.id.length-1);
+        const pitchIndex = pitchOptions[charCode % pitchOptions.length];
+
+        addMarker(staffIndex, noteIndex, pitchIndex);
       });
     });
   </script>
-  
-  </body>
+</body>
 </html>
