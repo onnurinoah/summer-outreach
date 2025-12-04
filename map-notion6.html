@@ -2,28 +2,39 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>기도 지도</title>
+  <title>기도 지도 - 오선지</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
+    /* 전체 화면 설정 */
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
+      overflow: hidden; /* 스크롤 방지 */
     }
 
-    #map {
-      width: 100%;
-      height: 100%;
+    /* 오선지 이미지를 배경으로 설정하고 화면에 꽉 채움 */
+    #score-sheet {
+      width: 100vw; /* 뷰포트 너비 */
+      height: 100vh; /* 뷰포트 높이 */
+      background-image: url('image_7475ff.png'); /* **업로드하신 이미지 파일명으로 변경하세요** */
+      background-size: cover; /* 이미지를 꽉 채우도록 설정 */
+      background-repeat: no-repeat;
+      background-position: center;
+      position: relative; /* 마커의 절대 위치 기준점 */
     }
 
+    /* 마커 스타일 */
     .icon-marker {
-      font-size: 20px;
-      font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-      text-align: center;
+      position: absolute; /* 절대 위치 지정 */
+      font-size: 30px; /* 하트 크기 조정 */
       line-height: 1;
+      text-align: center;
+      /* 마커가 중앙에 오도록 조정 */
+      transform: translate(-50%, -50%); 
     }
 
+    /* 하트 박동 애니메이션 */
     .pulse-heart {
       animation: beat 1.2s infinite;
       transform-origin: center;
@@ -36,73 +47,86 @@
   </style>
 </head>
 <body>
-  <div id="map"></div>
+  <div id="score-sheet"></div>
 
   <script type="module">
+    // Firebase 및 Firestore는 동일하게 유지
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { firebaseConfig } from "./config.js";
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-
-    const map = L.map('map', {
-      zoomControl: false,
-      attributionControl: false,
-      dragging: false,
-      touchZoom: false,
-      doubleClickZoom: false,
-      scrollWheelZoom: false,
-      boxZoom: false,
-      keyboard: false,
-      tap: false
-    }).setView([9.145, 40.4897], 5);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '',
-    }).addTo(map);
+    
+    // 오선지 영역 DOM 요소
+    const scoreSheet = document.getElementById('score-sheet');
 
     function getRandomHeart() {
       const hearts = ['💚', '💛', '❤️'];
       return hearts[Math.floor(Math.random() * hearts.length)];
     }
 
-    function addMarker(lat, lng) {
-      const icon = L.divIcon({
-        html: `<div class="icon-marker pulse-heart">${getRandomHeart()}</div>`,
-        className: '',
-        iconSize: [20, 20]
-      });
-      L.marker([lat, lng], { icon }).addTo(map);
+    // 오선지 라인에 마커를 배치하는 함수
+    // x, y는 **score-sheet** 영역 내에서의 백분율 좌표(0~100)입니다.
+    // **이 좌표를 수정하여 하트 위치를 오선지 라인에 맞추세요.**
+    function addMarker(xPercent, yPercent) {
+      const heart = getRandomHeart();
+      const marker = document.createElement('div');
+      marker.className = 'icon-marker pulse-heart';
+      marker.innerHTML = heart;
+      
+      // 백분율 위치로 설정
+      marker.style.left = `${xPercent}%`;
+      marker.style.top = `${yPercent}%`; 
+
+      scoreSheet.appendChild(marker);
     }
 
+    // Firestore 리스너
     onSnapshot(collection(db, "outreach_prayers"), (snapshot) => {
-      map.eachLayer(layer => {
-        if (layer instanceof L.Marker) map.removeLayer(layer);
-      });
+      // 기존 마커 제거
+      document.querySelectorAll('.icon-marker').forEach(marker => marker.remove());
 
       const now = new Date();
       const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
+      let markerCount = 0;
+      
       snapshot.forEach(doc => {
         const data = doc.data();
         const ts = data.timestamp?.toDate?.();
 
         if (ts && ts > hourAgo) {
-          let lat = data.lat;
-          let lng = data.lng;
+          // 문서의 고유 ID 또는 인덱스를 사용하여 위치를 결정
+          const docId = doc.id;
+          
+          // 임시: 문서 ID의 해시 값이나 인덱스를 이용해 오선지 라인에 배치할 x, y 좌표를 계산
+          // 이 부분은 데이터를 오선지 위에 시각적으로 매핑하는 **핵심 로직**입니다.
+          // 현재는 문서 인덱스(markerCount)를 사용하여 대략적인 위치를 잡았습니다.
+          
+          // X 좌표: 10% (왼쪽) ~ 90% (오른쪽) 사이
+          const x = 10 + (markerCount % 10) * 8; 
 
-          if (typeof lat !== 'number' || typeof lng !== 'number') {
-            lat = 5 + Math.random() * 6;
-            lng = 34 + Math.random() * 9;
-          }
+          // Y 좌표: 오선지 간격에 맞춰 15%, 35%, 55%, 75%, 95% 근처에 배치
+          // 오선지 줄 수(5개)에 따라 Y 위치를 결정합니다.
+          const staveIndex = Math.floor(markerCount / 10) % 5;
+          const baseY = 15 + staveIndex * 20; // 15, 35, 55, 75, 95
+          
+          // 오선지 한 줄 내에서 높은 음자리표 줄(5줄) 위에 하트를 랜덤하게 배치하기 위한 조정
+          // (0.1 ~ 5.9 사이의 임의의 값으로 줄 위치를 시뮬레이션)
+          const lineOffset = (markerCount % 5) * 4; // 임의로 5개 줄에 띄워서 배치
 
-          addMarker(lat, lng);
+          const y = baseY + lineOffset;
+          
+          // 좌표 범위 조정 (Y가 너무 벗어나지 않도록)
+          const finalY = Math.min(Math.max(y, 10), 95); 
+
+          addMarker(x, finalY);
+          markerCount++;
         }
       });
     });
   </script>
-
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-</body>
+  
+  </body>
 </html>
