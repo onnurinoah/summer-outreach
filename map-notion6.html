@@ -2,57 +2,60 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>기도 지도 - 오선지</title>
+  <title>따크프 오선지</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <style>
-    /* 기본 설정 */
+    /* 1. 기본 화면 설정 */
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
-      background-color: #5e0d0d; /* 배경색 (이미지 로딩 전) */
-      overflow: hidden;
+      background-color: #5e0d0d; /* 로딩 전 배경색 */
+      overflow: hidden; /* 스크롤바 숨김 */
       display: flex;
       justify-content: center;
       align-items: center;
     }
 
-    /* 오선지 컨테이너: 이미지의 실제 비율을 유지하는 것이 핵심입니다. */
+    /* 2. 오선지 컨테이너 설정 */
     #score-container {
       position: relative;
-      width: 100%;
-      max-width: 600px; /* 모바일 최적화 너비 제한 */
-      /* 이미지 비율에 맞춰 높이 자동 설정 (이미지가 세로로 길다면 이 비율 조정 필요) */
-      /* 예: 가로 1000px, 세로 1300px 이미지라면 1000/1300 = 약 0.77 */
+      width: 100vw; /* 가로를 화면에 꽉 차게 */
+      
+      /* 중요: 이미지의 가로/세로 비율을 유지해야 좌표가 안 틀어집니다. 
+         만약 배경 이미지가 짤리거나 여백이 생기면 이 비율을 이미지 해상도에 맞춰 수정하세요.
+         (예: 가로 1000px, 세로 1200px 이미지면 1000/1200) */
       aspect-ratio: 10 / 13; 
       
-      background-image: url('image_740884.jpg'); /* 업로드하신 파일명 확인 */
-      background-size: contain;
+      /* 배경 이미지 설정 */
+      background-image: url('image_7475ff.png'); 
+      background-size: contain; /* 이미지가 잘리지 않고 다 보이게 설정 */
       background-repeat: no-repeat;
       background-position: center;
     }
 
-    /* 마커 스타일 */
+    /* 3. 하트 마커 스타일 */
     .icon-marker {
       position: absolute;
-      /* 화면 크기에 비례하여 하트 크기 조절 (너무 크면 줄을 가림) */
-      font-size: 5vmin; 
+      font-size: 6vw; /* 화면 너비에 비례해 하트 크기 자동 조절 */
       line-height: 1;
       text-align: center;
-      transform: translate(-50%, -55%); /* 하트의 꼬리 부분이 줄에 걸치도록 미세 조정 */
-      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      /* 하트의 뾰족한 아래 부분이 줄에 닿도록 중심점 조정 */
+      transform: translate(-50%, -65%); 
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
+      z-index: 10;
     }
 
-    /* 하트 박동 애니메이션 */
+    /* 4. 애니메이션 */
     .pulse-heart {
       animation: beat 1.5s infinite;
-      transform-origin: center;
+      transform-origin: center bottom;
     }
 
     @keyframes beat {
-      0%, 100% { transform: translate(-50%, -55%) scale(1); }
-      50% { transform: translate(-50%, -55%) scale(1.2); }
+      0%, 100% { transform: translate(-50%, -65%) scale(1); }
+      50% { transform: translate(-50%, -65%) scale(1.2); }
     }
   </style>
 </head>
@@ -62,7 +65,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { firebaseConfig } from "./config.js";
 
     const app = initializeApp(firebaseConfig);
@@ -70,12 +73,12 @@
     const scoreContainer = document.getElementById('score-container');
 
     // ============================================================
-    // [설정 영역] 이미지를 보며 이 숫들을 조정하여 줄 위치를 맞추세요.
-    // 모든 단위는 퍼센트(%) 입니다.
+    // [좌표 보정 영역] 
+    // 하트가 줄에 딱 맞지 않으면 아래 숫자들을 조금씩 고쳐주세요.
     // ============================================================
     
-    // 1. 각 오선지 묶음(5줄)의 가장 '윗줄' Y 위치 (위에서부터 %)
-    // 이미지를 대략 눈으로 보고 적은 값입니다. 실제 화면 보며 미세조정 하세요.
+    // 1. 각 오선지 묶음(5줄)의 가장 '윗줄' Y 위치 (%)
+    // 이미지 image_7475ff.png 기준 대략적인 위치입니다.
     const STAFF_Y_STARTS = [
       12.5,  // 첫 번째 오선지 맨 윗줄
       29.0,  // 두 번째 오선지 맨 윗줄
@@ -84,12 +87,11 @@
       78.5   // 다섯 번째 오선지 맨 윗줄
     ];
 
-    // 2. 오선지 안에서 줄과 줄 사이의 간격 (%)
-    const LINE_GAP = 1.6; 
+    // 2. 줄과 줄 사이의 간격 (%)
+    const LINE_GAP = 1.65; 
 
-    // 3. 한 줄(오선지 묶음)에 들어갈 최대 하트 개수
+    // 3. 한 줄에 들어갈 하트 개수
     const NOTES_PER_STAFF = 7; 
-
     // ============================================================
 
     function getRandomHeart() {
@@ -103,15 +105,13 @@
       marker.className = 'icon-marker pulse-heart';
       marker.innerHTML = heart;
       
-      // X좌표 계산: 왼쪽 높은음자리표를 피해서 15% 지점부터 시작
-      // 간격은 (전체 85%공간) / (음표 개수)
-      const startX = 18; // 시작점 (%)
-      const endX = 92;   // 끝점 (%)
+      // X좌표: 15% ~ 90% 사이 균등 배치
+      const startX = 15; 
+      const endX = 90;
       const stepX = (endX - startX) / (NOTES_PER_STAFF - 1);
       const x = startX + (noteIndex * stepX);
 
-      // Y좌표 계산: 해당 오선지 시작점 + (몇 번째 줄인지 * 줄 간격)
-      // pitchIndex: 0(맨 윗줄) ~ 4(맨 아랫줄) ... 혹은 0.5 단위로 줄 사이 가능
+      // Y좌표: 오선지 시작점 + (몇번째 줄 * 줄간격)
       const baseY = STAFF_Y_STARTS[staffIndex];
       const y = baseY + (pitchIndex * LINE_GAP);
 
@@ -121,12 +121,9 @@
       scoreContainer.appendChild(marker);
     }
 
-    // Firestore 리스너 (최신순 정렬 등 필요에 따라 쿼리 수정)
-    // 여기서는 단순히 모든 데이터를 가져와서 시간순으로 정렬한다고 가정
     const q = query(collection(db, "outreach_prayers"));
 
     onSnapshot(q, (snapshot) => {
-      // 초기화
       scoreContainer.innerHTML = ''; 
       
       const docs = [];
@@ -137,33 +134,27 @@
         }
       });
 
-      // 과거 -> 최신 순으로 정렬 (악보를 앞에서부터 채우기 위해)
+      // 시간순 정렬
       docs.sort((a, b) => a.timestamp.toDate() - b.timestamp.toDate());
 
-      // 최근 1시간 데이터만 필터링하려면 여기서 filter 수행
-      // const now = new Date();
-      // const filteredDocs = docs.filter(...)
-
-      // 최대 표시 개수 제한 (오선지 5묶음 * 줄당 7개 = 35개)
+      // 최근 데이터만 표시 (화면 꽉 차면 예전 것 부터 사라짐)
       const maxNotes = STAFF_Y_STARTS.length * NOTES_PER_STAFF;
-      const displayDocs = docs.slice(-maxNotes); // 가장 최근 35개만 표시
+      const displayDocs = docs.slice(-maxNotes); 
 
       displayDocs.forEach((doc, index) => {
-        // 1. 몇 번째 오선지 묶음인지 계산 (0 ~ 4)
-        const staffIndex = Math.floor(index / NOTES_PER_STAFF);
+        // 위치 계산 로직
+        const staffIndex = Math.floor(index / NOTES_PER_STAFF); // 몇 번째 오선지 묶음?
+        const noteIndex = index % NOTES_PER_STAFF; // 그 줄에서 몇 번째 칸?
         
-        // 2. 오선지 내에서 몇 번째 순서(가로)인지 계산 (0 ~ 6)
-        const noteIndex = index % NOTES_PER_STAFF;
-
-        // 3. 음 높이(어느 줄에 걸칠지) 랜덤 결정
-        // 0: 맨 윗줄, 1: 둘째줄 ... 4: 맨 아랫줄
-        // (0, 0.5, 1, 1.5 ... 로 하면 줄 사이사이에도 배치 가능)
+        // 음 높이 (0:맨윗줄 ~ 4:맨아랫줄) - 랜덤이지만 문서ID 기준으로 고정
         const pitchOptions = [0, 1, 2, 3, 4]; 
-        // 문서를 기준으로 고정된 랜덤값을 얻기 위해 ID 사용 (새로고침해도 위치 유지)
         const charCode = doc.id.charCodeAt(0) + doc.id.charCodeAt(doc.id.length-1);
         const pitchIndex = pitchOptions[charCode % pitchOptions.length];
 
-        addMarker(staffIndex, noteIndex, pitchIndex);
+        // 5번째 오선지 묶음까지만 그리기 (에러 방지)
+        if (staffIndex < STAFF_Y_STARTS.length) {
+            addMarker(staffIndex, noteIndex, pitchIndex);
+        }
       });
     });
   </script>
