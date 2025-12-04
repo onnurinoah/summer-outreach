@@ -11,7 +11,6 @@
 
     body {
       font-family: 'Segoe UI', sans-serif;
-      /* [수정] 오선지 배경색에 맞게 어두운 빨간색으로 변경 */
       background-color: #5e0d0d; 
       display: flex;
       flex-direction: column;
@@ -19,14 +18,15 @@
       justify-content: flex-start;
       padding: 20px;
       margin: 0;
-      color: white; /* 텍스트 색상을 흰색으로 변경 (어두운 배경에 대비) */
+      color: white; /* 기본 글자색 흰색 유지 */
     }
 
-    /* [추가] 제목 스타일 */
+    /* 제목 스타일 */
     #form-title {
       font-size: 1.15rem;
       font-weight: 600;
-      color: #ffeb3b; /* 제목은 노란색으로 강조 */
+      /* [수정 완료] 제목 텍스트 흰색 */
+      color: white; 
       margin-bottom: 20px;
       text-align: center;
     }
@@ -43,20 +43,23 @@
       width: 100%;
       padding: 14px 18px;
       font-size: 1rem;
-      border: 2px solid #ffeb3b; /* 테두리 색상 노란색으로 변경 */
-      background-color: #22222215; /* 입력창 배경을 살짝 투명하게 */
+      /* [수정] 테두리 색상 흰색 */
+      border: 2px solid white; 
+      /* [수정] 입력칸 배경을 살짝 어둡게 (텍스트 대비) */
+      background-color: #22222215; 
+      /* [수정 완료] 입력 글자색 흰색 */
       color: white;
       border-radius: 12px;
       outline: none;
       margin-bottom: 1rem;
     }
     
-    /* placeholder 색상 지정 */
     input::placeholder {
-        color: #cccccc;
+        /* placeholder 색상 밝게 */
+        color: #e0e0e0;
     }
 
-    /* [수정] 버튼 스타일: 노란색으로 변경 */
+    /* [수정] 버튼 스타일: 노란색으로 복원 */
     button {
       width: 100%;
       background-color: #ffeb3b; /* 노란색 */
@@ -77,7 +80,8 @@
 
     #submit-msg {
       margin-top: 1rem;
-      color: #81c784; /* 제출 메시지 색상 */
+      /* 제출 메시지 색상 유지 */
+      color: #FFD700; 
       font-weight: bold;
       opacity: 0;
       transition: opacity 0.4s ease;
@@ -100,7 +104,7 @@
     
     <button type="submit">음표를 더해요🎶</button>
   </form>
-  <div id="submit-msg">제출되었습니다!</div>
+  <div id="submit-msg">음표가 연주되었습니다! 🎶</div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -109,7 +113,6 @@
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { firebaseConfig } from "./config.js";
 
-    // config.js 파일이 올바르게 위치하고 Firebase 설정이 완료되었는지 확인하세요.
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
