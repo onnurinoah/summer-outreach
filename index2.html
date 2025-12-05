@@ -18,14 +18,13 @@
       justify-content: flex-start;
       padding: 20px;
       margin: 0;
-      color: white; /* 기본 글자색 흰색 유지 */
+      color: white;
     }
 
     /* 제목 스타일 */
     #form-title {
       font-size: 1.15rem;
       font-weight: 600;
-      /* [수정 완료] 제목 텍스트 흰색 */
       color: white; 
       margin-bottom: 20px;
       text-align: center;
@@ -39,27 +38,9 @@
       max-width: 400px;
     }
 
-    input[type="text"] {
-      width: 100%;
-      padding: 14px 18px;
-      font-size: 1rem;
-      /* [수정] 테두리 색상 흰색 */
-      border: 2px solid white; 
-      /* [수정] 입력칸 배경을 살짝 어둡게 (텍스트 대비) */
-      background-color: #22222215; 
-      /* [수정 완료] 입력 글자색 흰색 */
-      color: white;
-      border-radius: 12px;
-      outline: none;
-      margin-bottom: 1rem;
-    }
-    
-    input::placeholder {
-        /* placeholder 색상 밝게 */
-        color: #e0e0e0;
-    }
+    /* 입력창 스타일(input)은 삭제했습니다 */
 
-    /* [수정] 버튼 스타일: 노란색으로 복원 */
+    /* 버튼 스타일 */
     button {
       width: 100%;
       background-color: #ffeb3b; /* 노란색 */
@@ -74,13 +55,12 @@
     }
 
     button:hover {
-      background-color: #fdd835; /* 살짝 진한 노란색 */
+      background-color: #fdd835;
       transform: translateY(-1px);
     }
 
     #submit-msg {
       margin-top: 1rem;
-      /* 제출 메시지 색상 유지 */
       color: #FFD700; 
       font-weight: bold;
       opacity: 0;
@@ -95,15 +75,13 @@
 </head>
 <body>
   <div id="form-title">
-    기대하는 마음으로 한 음을 남겨주세요!
-    <br>함께 우리들의 플리를 완성해요🎵
+    기대하는 마음으로 버튼을 눌러주세요!
   </div>
 
   <form id="prayer-form">
-    <input type="text" id="prayer-input" placeholder="메시지를 입력하세요" required />
-    
-    <button type="submit">음표를 더해요🎶</button>
+    <button type="submit">❤️🎄🎶</button>
   </form>
+  
   <div id="submit-msg">음표가 연주되었습니다! 🎶</div>
 
   <script type="module">
@@ -117,21 +95,20 @@
     const db = getFirestore(app);
 
     const form = document.getElementById("prayer-form");
-    const input = document.getElementById("prayer-input");
     const msg = document.getElementById("submit-msg");
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
+
+      // 입력값이 없으므로, 여기서 자동으로 들어갈 텍스트를 지정합니다.
+      const autoMessage = "새로운 음표가 추가되었습니다! 🎵";
 
       try {
           await addDoc(collection(db, "outreach_prayers"), {
-              message: text,
+              message: autoMessage, // 지정한 메시지가 저장됩니다
               timestamp: serverTimestamp()
           });
 
-          input.value = "";
           msg.textContent = "음표가 연주되었습니다! 🎶";
           msg.classList.add("visible");
           setTimeout(() => msg.classList.remove("visible"), 3000);
